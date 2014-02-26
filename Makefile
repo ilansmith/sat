@@ -7,9 +7,12 @@ CONFFILE=sat.mk
 
 -include $(CONFFILE)
 
+ifneq ($(TESTS)$(DEBUG),)
+CFLAGS+=-g
+endif
+
 ifeq ($(TESTS),y)
 PROG_SUFFIX=$(TESTS_SUFFIX)
-CFLAGS+=-g
 ifeq ($(COLOURS),y)
 CFLAGS+=-DCOLOURS
 endif
