@@ -1,0 +1,397 @@
+Solving SAT using self replicating loops in a cellular automata environemnt
+===========================================================================
+Based the work of Hui-Hsien Chou and James A. Reggia:
+Problem Solving during artifitial selection of self-replication loops [1]
+
+Related Documents
+=================
+[1] sat.pdf
+[2] http://complex.gdcb.iastate.edu/download/Trend/examples/3SAT.html
+[3] 3sat.rule.txt
+
+Introduction
+============
+definition - The SAT decision problem: 
+
+    Given preicate P in CNF form, is P satisfyable?
+
+The sat application decides instances of SAT. Moreover, for each predicate P 
+in SAT, it produces all the possible assignments to P's variables that satisfy 
+P. The SAT problem is an NP-complete problem. A trivial algorithm for solving 
+an instatnce of the SAT problem is to enumerate all possible assginments to its 
+variables and to test each assginment for satisfaction of the predicate. The 
+solution to the SAT problem provided by the sat application is based on this 
+algorithm. The solution discussed in [1] is for the K-SAT problem (where each 
+clause in the CNF predicate is of a constant length: K). The sat application 
+extends the solution to solving any instatnce of SAT. It also supports CNF 
+expressions with clauses in which there are multiple instatnces of one or more 
+variables. The techneque is to break the SAT the problem into small 
+subproblems - each possible assignment is carried by a self replicating loop 
+in a cellular automata environment. Artifitial selection is used to remove 
+loops carrying non satisfying assignments. More on the CA environment is found 
+in [1].
+
+The sat application uses an event loop to provide a multi tasked single 
+threaded environment. The implementation of the cellular space differs slightly 
+from the clasic definition of CA space in that it is event driven. That is, 
+most cells are in a dormant state and are not active during iteration. Only 
+cells on the loops, or on the extentions of replicating loops are active and 
+change their state from iteration to iteration.
+
+
+The sat modules
+===============
+- Event Loop
+- Input Reception - options
+- CNF Parser
+- SAT Table
+- Cellular Space
+  - Cellular Space Initialization
+  - Iteration and Signalling
+  - CA Rules
+  - Monitor Spreading and Selection
+  - Completion Detection
+- Graphics and Output
+- Testing
+
+
+Event Loop
+==========
+The event loop provides a signle tasked, multithreaded, event drivern 
+environment as the infrestructure of the application.
+The event loop consists of a queue of event data/function pairs waiting to be
+exectuted. When the event loop becomes empty, the application terminates. Events
+can be triggered by setting signals.
+Before starting the event loop, event handlers must be registered, initial tasks
+and file descriptors (fd's are not relevant to this application) must be added. 
+Before starting the event loop event_init() must be called. The event loop is 
+started by calling event_loop(), and at its completion event_uninit() must be 
+called for cleanup.
+
+Two signals are defined:
+SIG_LOOP: a self replicating loop has either been removed or has matured.
+SIG_ERROR: used only to handle unsuccessful memory allocations.
+
+The event loop necessary structures and API can be found in event.h.
+
+
+Input Reception - options
+=========================
+The application can be started recieving the following options:
+-p: recieve input predicate from command line. required argument: "<predicate>"
+-f: recieve input from file. required argument: <file_name>
+-n: no printing
+-o: print code field (default)
+-d: print direction field
+-l: print flag field
+-c: print colour field
+-s: slow iteration speed
+-m: medium iteration speed
+-r: rapid iteration speed
+-h: help message
+-e: restore cursor
+
+
+CNF Parser
+==========
+The CNF parser implements the following regular expression/automaton:
+
+CNF regulare expression
+-----------------------
+WS:              ' ' | '\t'
+LPAREN:          '('
+RPAREN:          ')'
+NEGATION:        '-'
+UNDERSCORE:      '_'
+ALPHA:           ['a' - 'z'] | ['A' - 'Z']
+NUMERIC:         ['0' - '9']
+VARIABLE_PREFIX: UNDERSCORE | ALPHA
+VARIABLE_SUFFIX: (UNDERSCORE | ALPHA | NUMERIC)*
+(*) VARIABLE:    VARIABLE_PREFIX VARIABLE_SUFFIX
+LITERAL:         NEGATION? VARIABLE
+CLAUSE:          LPAREN WS* LITERAL WS* (WS or WS WS* LITERAL WS*)* RPAREN
+CNF:             WS* CLAUSE WS* (WS and WS WS* CLAUSE WS*)*
+
+(*) 'and' and 'or' are reserved words and cannot be used as VARIABLEs.
+
+The CNF parser in sat_parser.c implements the following automaton:
+
+                      +-----------------+
+                      |                 |--+
+          +---------->| st_clause_start |  | WS
+          |           |                 |<-+
+          |           +-----------------+
+          |             |
+          |             |           WS
+          |             | LPAREN   +--+
+          |             |          |  |
+          |             v          |  v
+          |           +-----------------+
+          |           |                 |
+          |           | st_literal_pre  |<---------------------+
+          |           |                 |                      |
+          |           +-----------------+                      |
+          |             |                                      |
+          |             | VARIABLE_PREFIX                      |
+          |             |                                      |
+          |             v                                      |
+          |           +-----------------+                      |
+          |           |                 |--+                   |
+          |           | st_literal      |  | VARIABLE_SUFFIX   |
+          |           |                 |<-+                   |
+          |           +-----------------+                      |
+          |             |                                      |
+          |             | WS/RPAREN                            |
+          |             |  (unget)                             |
+          |             |           WS                         |
+          |             |          +--+                        |
+          |             |          |  |                        |
+          |             v          |  v                        |
+          |           +-----------------+                      |
+          |           |                 | 'or '                |
+          |           | st_literal_post |----------------------+
+          |           |                 |
+          |           +-----------------+
+          |             |
+          |             | RPAREN
+          |             |
+          |             v
+          |           +-----------------+
+          |   ' and ' | +-------------+ |--+
+          +-----------| |st_clause_end| |  | WS
+                      | +-------------+ |<-+
+                      +-----------------+
+
+During parsing, new clauses found throughout the CNF expression and new 
+literals found in each clause are managed by using the clause_new() and
+literal_new() callbacks passed on the provided parser_cb_t. The clause_new() 
+callback is called in st_clause_start() state and the literal_new() callback is 
+called in the st_literal() state. These callbacks are used to create a list of 
+clauses consisting of lists of literals - later to be used when creating the 
+SAT table which I discuss later.
+
+The parser recieves success and fail callbacks in the parser_cb_t provided and 
+utilizes the event loop to jump from state to state and to exit with success or 
+failure.
+
+As well as the callbacks, the parser recieves a character stream on which it
+operates. The character stream is a generic wrapper to input provided either in
+a file or as a string on the command line.
+
+On failure, the parser sets its error_no apropriately and calls the st_error()
+function which in turn, produces the correct error message describing the
+failure reason.
+
+If parsing completes succesfuly, then from this point on no errors are expected.
+The only event that could yield an error is unsuccessful memory allocation.
+
+SAT Table
+=========
+SAT variables
+-------------
+SAT expression variables can be any alphanumeric expression with the first
+letter being non numeric.
+
+During CNF expression parsing, each encountered variable is added to a list of
+varible_t structures that map between variable names and assigned integer ids.
+
+Variables are added to the variable list using the function variable_add(),
+while the list is cleared by calling variable_clr().
+
+SAT table
+---------
+The monitorring system, as is discussed later, removes loops carrying non
+satisfying assignemnts. It does so by seeking assignments satisfying the
+negation of the CNF expression. The SAT table is the data struture that stores
+each clause's literals and their negated truth value sign for recognition by the
+monitor. Its structure is as follows:
+legend:
+- n: number of clauses
+- k: longest length (number of variables in) of clause
+- id[p][q]: id of the variable in clause p, position q
+- tv[p][q]: negated truth value of variable id[p][q]
+
+                 dummy    clause 1   clause 2   clause 3   ...   clause n
+              +---------+----------+----------+---------+       +---------+
+pos 1: id     |    0    | id[1][1] | id[2][1] | id[3][1]         id[n][1] |
+truth value   | paradox | tv[1][1] | tv[2][1] | tv[3][1]         tv[n][1] |
+              +---------+----------+----------+---------+       +---------+
+pos 2: id     |    0    | id[1][2] | id[2][2] | id[3][2]         id[n][2] |
+truth value   | paradox | tv[1][2] | tv[2][2] | tv[3][2]         tv[n][2] |
+              +---------+----------+----------+---------+       +---------+
+pos 3: id     |    0    | id[1][3] | id[2][3] | id[3][3]         id[n][3] |
+truth value   | paradox | tv[1][3] | tv[2][3] | tv[3][3]         tv[n][3] |
+              +---------+----------+----------+---------+       +---------+
+ .
+ .
+ .
+              +---------+----------+----------+---------+       +---------+
+pos k: id     |    0    | id[1][k] | id[2][k] | id[3][k]         id[n][k] |
+truth value   | paradox | tv[1][k] | tv[2][k] | tv[3][k]         tv[n][k] |
+              +---------+----------+----------+---------+       +---------+
+
+The table is created in two stages:
+1. A list of clauses is created during expression parsing.
+   Each clause consists of a list of the literals it is made up of. During this
+   process, the variables are mapped to numeric ids which are used for the
+   actual computation. At successful completion of the computation the numeric
+   values are mapped back to alphanumeric names when providing the output.
+   The functions for creating new clauses and literals are passed by the sat
+   application as callbacks to the parser.
+2. The position table is created after successful parsing by using the clause 
+   list created in the previous stage. In this stage, all values of the literals
+   are negated to corresopnd to the negated CNF expression.
+   The ids in the first collum in of the table are set to 0s and their truth
+   values to paradox. This is required for technical reasons.
+   Clauses with less than k literals are padded in the higher positions with 
+   literals of id 0 and truth value tautology since a monitor scanning this far 
+   into the clause implies acceptance of the assignment by the negated CNF 
+   expression. Clauses in which a literal appears twice with opposite signs 
+   will have one instance of that variable in the first position it appears. 
+   Such a variable's truth value will be set to paradox, as such a clause can 
+   never be accepted by the negated CNF expression. 
+   For example: !(a or -a) --> (-a and a), which is a paradox.
+More on the monitorring proccess and how the SAT table is used is disccussed
+later.
+
+Cellular Space
+==============
+Cellular Space Initialization
+-----------------------------
+As the cellular space is a sphere, it is not important where in the space the
+initial configuration is set. For cosmetic reasons, the initial configuration 
+is set one loop size to the south west of the cellular spaces's center. Note 
+that the implementation suggest in [1] the initial configuration is set at the 
+bottom left of the cellular space.
+For a SAT expression with n variables
+- the celluar space dimention is given by: Dsp = (2n + 1) * (n + 2)/3 + 6n + 2
+- the loop dimention is given by: Dlp = (n + 8)/3
+- the loop length is given by: Llp = 4(Dlp - 1)
+- the bottom left cell of the initial configuration is given by
+  - x dimention: X = (Dsp/(2(Dlp + 1)) - 1) * (Dlp + 1)
+  - y dimention: Y = Dsp - 1 - X
+The initial values of all fields is decribed in [1] and is set by
+sp_initial_configuration() in sat_ca.c. The only deviation from what is 
+described is that sat sets the colour field of the non quiescent cells to red. 
+This is not an algormthmic requirement, it simply provides for better output 
+when running sat with the -c option.
+
+Iteration and Signalling
+------------------------
+A full iteration performed by a cellular automaton consists of two stages: 
+scanning and applying.
+During scanning, the CA scans its and its neighbours' states and decides the
+action to be taken in order to transform to its next state. During application,
+the CA transforms from its current state to its next state.
+It is imperitive that in each iteration all CAs complete scanning before any
+of them perform application.
+Unlike in the clasic cellular automata model, the sat cellular automaton is
+event driven. That is, mostly it is only non quiescent cells that perform 
+scanning and application during iteration, whilst quiescent cells do not. 
+Exceptions to this are quiescent cells on a loop being replicated.
+In general, two event loop calls (registrations) are required per automaton to
+complete its full iteration. During the first event call, the automaton performs
+its scan and sets the application function as a callback to be executed at its
+next event call. Once called a second time and completing the application, the
+automaton sets the scan function once again to be called during the next 
+iteration. In the cases of changing a quiescent cell to grow (both ahead and in 
+the left direction) and creating an extention for replication it is the 
+responsabilty of the neighbour due to which the cell is becoming active to
+register it on the event loop. This is done in the following functions once the 
+neighbour completes its application:
+- code_set_grow()
+- code_set_turn_left()
+- code_set_arm_ext_start()
+Cells on loops being removed ether by the selection proccess (monitoring) or due
+to loop collision refrain from re-registering themselves on the event loop. 
+This is done in:
+- bound_rules_scan() if a degenerating (remove loop or collision) flag is set
+The scan-apply method guarentees that all active CAs complete their scanning
+before any perform application. This is true, since starting at the initial
+configuration, prior to each iteration, all the active cells are registerd on
+the event loop with the scanning callback. Any further registrations on the
+event loop occur after the last active cell's scanning registration. That is,
+all applications schedualed by the scanning are registered in the event loop
+after the last active cell's scan. Only once the last cell completes its
+scanning does the event loop reach the application functions. Similarly, all
+applications are carried out one by one before any of the newly registered
+scans can be called. When the last application is called and executed, the
+iteration is complete and the event loop is rendered queued with all the active
+cells and the scanning function - ready for the next iteration.
+It is important to note that for printing, both sat_print() and sat_print_set()
+functions are required - corresponding to the scan-apply functions described
+above. Printing the cellular space is typically done before a new iteration by 
+the sat_print() function (with the exception of the initial scan this is 
+directly after all applications have been executed). The sat_print() function 
+must register the sat_print_set() function. It does so directly before the 
+first scan of the next iteration is performed. The sat_print_set(), in turn, 
+is executed directly before any of the application functions are called and 
+simply registers the sat_print() function once more in the event loop. This 
+guarentees that sat_print() will be called directly after all applications are 
+executed and before the next iteration.
+
+CA Rules
+--------
+The CA rules are based on those defined in [3]. The main changes are in the
+- monitor spreading mechanism
+- activating previously quiescent cells
+- completion detection
+The CA is defiend by the ca_t struct:
+
+typedef struct ca_t {
+    struct ca_t *neighbours[8];
+    ca_code_t code;
+    ca_direction_t dir;
+    ca_colour_t col;
+    ca_flag_t flag;
+    int id;
+    monitor_t mon;
+    void *loop;
+} ca_t;
+
+The CA's state is defined by the combined states of its code, dir, col, flat, 
+id fields, as well as its monitoring state. All application actions are set as
+call backs for the next round of events as described above.
+All these fields are reset in quiescent cells.
+The progression through the rule set commences with scannig the flag field as
+follows:
+- if any of the destruction flags are set reset the flag. else
+- if ca is bound and there is a destruction flag nearby, set the destruction 
+  flag. else
+- if a collision flag nearby copy the retracting flag until raching a corner, 
+  then set the branch sequence flag. else
+- if the replication arm is closing on itself set the flag to mutate a new one 
+  bit. else
+- check arm extrusion failure. a failed attempt at new arm etrusion will result 
+  in the FL_BRANCH_SEQ flag being set in the cornder. this allows further 
+  attempts at the other directions later. else
+- if a CD_TURN_LEFT is near by change FL_GEN_ZERO to FL_GEN_ONE  in order to 
+  mutate a new one bit. else
+- if CD_ARM_EXT_START clear the flag. else
+- if FL_GEN_ONE/FL_GEN_ZERO reset to either FL_QUIESCENT or FL_BRANCH_SEQ. else
+- if id != 0, do monitor scanning (described later):
+  - if success, deactiveate montor
+  - if active, set flag to monitor active
+  - if allert, set flag to monitor allert
+  - if fail, set erase loop
+
+Following the flag scanning state scanning precedes with either bound rule set
+or unbound ruleset depending on the whether the cell is quiescent or not.
+bound rules:
+- if any of the detruction flags is set, reset all fields. else
+- if a CD_GROW is seen CD_QUIESCENT state changes to CD_FLOW. else
+- if a CD_DETACH sees a FL_GEN_ZERO nearby it disappears. else
+- if a closing loop is detected, set the CD_DETACH code. else
+- if a detach code is seen close the child loop. else
+- if a FL_BRANCH_SEQ is seen generate an arm extention sequence. else
+- if state is arm extention start then complete the arm extention sequence. else
+- if on a loop corner do not copy do not copy arm extention start round it. else
+- if on a loop corner do not copy do not copy arm extention end round it. else
+- if CD_UNEXPLORED_0/CD_UNEXPLORED_1 convert to CD_ZERO/CD_ONE. else
+- if monitror is active and code is 0 or 1 and pionting neighbour's code is flow
+  set the loop's success flag
+unbound rules:
+- if there's a CD_GROW nearby CD_QUIESCENT changes to CD_FLOW. else
+- initiate an arm extention if needed. else
+- turn the flowing dirction due to CD_TURN_LEFT if needed. else
+

@@ -1,0 +1,284 @@
+// *****************************************************************
+// *****************************************************************
+// 3-SAT Problem Solving Self-Replicating Rules
+//                                         written by Hui-Hsien Chou
+// *****************************************************************
+// *****************************************************************
+// 
+
+// *****************************************************************
+// ***********   The SAT Predicate Encoding Section  ***************
+// *****************************************************************
+// A SAT predicate is encoded in its complement form using the
+// following three arrays, pos1[] pos2[], pos3[], code1[], code2[] and
+// code3[]. The position arrays listed the index of the variables in a
+// SAT predicate, and the code arrays listed the expected boolean
+// values of the variable. For example, as set in the following
+// arrays, the predicate  
+//
+//     (~x_3 and ~x_1 and ~x_4) or (x_3 and ~x_4 and ~x_2) or 
+//     (~x_1 and x_2 and x_3 ) or (~x_4 and ~x_3 and x_1) or
+//     (x_1 and x_2 and x_4) or (x_4 and ~x_1 and ~x_3)
+//
+// are encoded, where ~ denote false. If any of the predicate clauses
+// is triggered by a loop, it carries unsatisfiable answers and must
+// be killed.
+
+// This variable denotes the number of SAT clauses.
+int noclauses = 6;
+
+// First condition position for each clause. The number is the index
+// of the binary bit within each SAT sequence.
+int pos1[] = { 0, 3, 3, 1, 4, 1, 4};
+
+// First condition listing for each clause. 
+int code1[] = { 0, '0:code', '1:code', '0:code', '0:code', '1:code', '1:code'};
+
+// Second condition position for each clause. The number is the index
+// of the binary bit within each SAT sequence.
+int pos2[] = { 0, 1, 4, 2, 3, 2, 1};
+
+// Second condition listing for each clause. 
+int code2[] = { 0, '0:code', '0:code', '1:code', '0:code', '1:code', '0:code'};
+
+// Third condition position for each clause. The number is the index
+// of the binary bit within each SAT sequence.
+int pos3[] = { 0, 4, 2, 3, 1, 4, 3};
+
+// Third condition listing for each clause. 
+int code3[] = { 0, '0:code', '0:code', '1:code', '1:code', '1:code', '0:code'};
+
+// *****************************************************************
+// *****************     Default  Rules          *******************
+// *****************************************************************
+// The default action is to maintain no change if none of the rule 
+// changes the next state value for each field. Therefore, the current
+// value is copied over to the next state for each field.
+
+default code=code;
+default pos=pos;
+default direc=direc;
+default clause=clause;
+default special=special;
+default color=color;
+
+// *****************************************************************
+// ********* Direction to Neighbor Position Conversion *************
+// *****************************************************************
+// This function maps a directional pointer in the 'direc' field to
+// a neighbor position.
+
+nbr PointTo(int x) {
+    rot if (x=='<:direc') return ea:;
+    else return ce:;
+}
+
+// *****************************************************************
+// ***************** Virus Broadcasting Rules **********************
+// *****************************************************************
+// If there is no virus in a cell, thus clause==0, then copy the virus
+// value from either the north or west neighbor, if any of them exists,
+// then modify the value by one modulo the total number of the clauses.
+// This modified virus value is then stored in the cell.
+
+if (clause==0)
+    if (no:clause)
+        clause=no:clause%noclauses+1;
+    else if (we:clause)
+        clause=we:clause%noclauses+1;
+
+// *****************************************************************
+// ************ The SAT Rules for Setting Flags ********************
+// *****************************************************************
+
+// If special is set at any of the destruction flags, reset it.
+if (special=='#' || special=='!')
+    special='.';
+
+// If current cell is bound (thus direc!=0) and there is a destruction
+// flag nearby, set the destruction flag in the current cell.
+else rot if (direc && no:special=='#')
+    special='#';
+
+// This rule retracts the replicating arm once a collision is found 
+// (thus the '!' flag is set). It will copy the retraction flag 
+// until the end of the corner (judged by we:direc=='<') is reached,
+// where the retraction flag is converted to the arm extrusion
+// flag '*'.
+else rot if (no:direc=='<,1' && no:special=='!')
+    if (we:direc=='<')
+        special='*';
+    else
+        special='!';
+
+// This rule determines if the replication arm is closing on itself.
+else rot if (code && direc=='<,2' && 
+             (special=='.' || special=='?' || special=='%') && 
+             (ea:code=='D' || we:code=='D'))
+    special='+';
+
+// The arm extrusion failure checking. A failed attempt at new arm 
+// extrusion will result in flag '*' being set in the corner, which
+// allows further attemps at the other direction later.
+else rot if (code=='F' && direc=='<,1' && no:direc==0 && we:code=='o')
+    special='*';
+
+// This rule resets flag '+' to '-' after seeing L.
+else if (special=='+' && code=='L')
+    special='-';
+
+// Code E will always clear the special field.
+else if (code=='E')
+    special='.';
+
+// This rule resets the special flags '+' or '-' to either quiescent
+// state or flag '*', depending the condition
+else if (special=='+' || special=='-') {
+    if (PointTo(direc):code=='o')
+        special='.';
+    else if (code=='A' || code=='B')
+        special='*';
+
+// The virus checking codes. If a SAT bit is on the current cell (thus
+// pos!=0)...
+} else if (pos) {
+
+    // see if it violates the first variable expectation of the virus
+    if (special=='.' && pos==pos1[clause] && code==code1[clause])
+        special='?'; // yes, set the alarm flag ?
+
+    // if alarm flag has been set, see if it violates the second
+    // variable expectation of the virus
+    else if (special=='?' && pos==pos2[clause] && code==code2[clause])
+            special='%';  // yes, set the alarm flag %
+
+    // if alarm flag has been set to '#', see if it violates the third
+    // variable expectation. If all three are violated, set the destruction
+    // flag '#' to infect the loop. Otherwise, reset to normal flag, the
+    // loop is not infected. 
+    else if (special=='%' && pos==pos3[clause])
+        if (code==code3[clause])
+            special='#';
+        else 
+            special='.';
+
+}
+        
+// *****************************************************************
+// ***************      Rules for Bound Cells      *****************
+// *****************************************************************
+
+if (direc) {
+    // if any of the destruction flag is set, reset everything to 0
+    if (special=='#' || special=='!') {
+        direc=0; code=0; pos=0; color=0;
+
+    // do checking for real codes only
+    } else if (code)
+
+        // if D sees a '+' flag nearby, it disappears
+        if (code=='D') {
+            rot if (ea:special=='+') {
+                code='.';
+                direc='.';
+                color=0;
+            }
+
+        // if the closing of loop is detected, set Code D
+        } else rot if (direc=='<,2' && nw:direc=='<,1' && nw:code && 
+                        ne:direc=='<,3' && ne:code) {
+                code='D'; 
+                pos=0;
+
+        // the rule to close the loop in the child loop
+        } else if (PointTo(direc):code=='D') {
+            rot if (direc=='<,2') {
+                direc='<,3';
+                code=no:code;
+            }
+
+        // the rule to generate the EF sequence seeing flag '*' 
+        } else if (code!='o' && PointTo(direc):code=='o' && 
+                        code!='E' && special=='*') {
+            code='E';
+            pos='0';
+        } else if (code=='E')
+            code='F';
+
+        // the rule to prevent signal E getting copied beyound corner
+        else rot if (direc=='<' && ea:code=='E' && ea:direc=='<,1' 
+                        && se:code=='F') {
+            code='o';
+            pos='0';
+
+        // same rule to prevent signal F getting copied beyound corner
+        } else if (code=='o' && PointTo(direc):code=='F')
+            code='o';
+
+        // rules to explore binary bit A or B to 0 or 1 when seeing '+'
+        else if (PointTo(direc):special=='+') {
+            if (PointTo(direc):code=='A')
+                code='0';
+            else if (PointTo(direc):code=='B')
+                code='1';
+            else
+                code=PointTo(direc):code;    
+            pos=PointTo(direc):pos;
+
+        // rules to explore binary bit A or B to 1 or 0 when seeing '+'
+        } else if (PointTo(direc):special=='-') {
+            if (PointTo(direc):code=='A')
+                code='1';
+            else if (PointTo(direc):code=='B')
+                code='0';
+            else
+                code=PointTo(direc):code;
+            pos=PointTo(direc):pos;
+
+        // normal copying rules for signal flow in the loop
+        } else {
+            code=PointTo(direc):code;
+            pos=PointTo(direc):pos;
+        }
+
+    // quiescent state changes to 'o' when seeing signal G
+    else if (PointTo(direc):code=='G')
+        code='o';
+
+// *****************************************************************
+// ***************    Rules for Unbound Cells      *****************
+// *****************************************************************
+
+} else {
+
+    // quiescent state changes to 'o' when seeing signal G
+    rot if (no:code=='G' && (no:special==0 || no:special=='?')
+                        && no:direc=='<,3' && ne:direc!='<,2') {
+        direc='<,3';
+
+        // check to see if collision occurs
+        if (so:direc==0 || so:color==no:color) {// no collision
+            code='o';
+            color=no:color;
+        } else                          // yes, collision, set
+            special='!';                // flag '!' to retract arm
+
+    // EF sequence extruding a new branch
+    } else rot if (so:code=='E' && so:direc=='<,1' && 
+                        (so:special==0 || so:special=='?') 
+                        && no:direc==0) {
+        direc='<,1';
+        code='G';
+        color='^';
+
+    // The rule to set turn the signal flowing direction 
+    // when seeing signal L
+    } else rot if (no:code=='L' && (no:special==0 || no:special=='?')
+                        && no:direc=='<' && nw:direc==0) {
+        direc='<,3';
+        if (so:direc==0 || so:color==no:color)
+            color=no:color;
+        else
+            special='!';
+    }
+}
