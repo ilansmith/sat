@@ -22,26 +22,26 @@
 
 #ifdef _ARG_TABLE_ENTRIES_INIT_
 #define ARG_START \
-    do { \
-	int i = 0;
+	do { \
+		int i = 0;
 #define ARG_ENTRY(name, c, icp) \
-	IDX_ ## name = i; \
-	sat_opts[i].opt = c; \
-	sat_opts[i].flag = 1<<i; \
-	i++;
+		IDX_ ## name = i; \
+		sat_opts[i].opt = c; \
+		sat_opts[i].flag = 1<<i; \
+		i++;
 #define ARG_END \
-    } while (0);
+	} while (0);
 
 #endif
 
 #ifdef _ARG_TABLE_INCOMPAT_INIT_
 #define ARG_START \
-    do { \
-	int i = 0;
+	do { \
+		int i = 0;
 #define ARG_ENTRY(name, c, icp) \
-	sat_opts[i].incompat = (icp) & ~sat_opts[i].flag; \
-	i++;
+		sat_opts[i].incompat = (icp) & ~sat_opts[i].flag; \
+		i++;
 #define ARG_END \
-    } while (0);
+	} while (0);
 #endif
 

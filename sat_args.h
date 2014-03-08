@@ -9,9 +9,9 @@
 #define OPT_STRING "-heocdltnsmrp:f:"
 
 typedef struct sat_opt_t {
-    char opt;
-    unsigned long flag;
-    unsigned long incompat;
+	char opt;
+	unsigned long flag;
+	unsigned long incompat;
 } sat_opt_t;
 
 #define _ARG_TABLE_IDX_DECLARE_
@@ -24,3 +24,4 @@ extern sat_opt_t sat_opts[];
 
 void sat_args_init(void);
 #endif
+

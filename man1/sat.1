@@ -3,142 +3,142 @@
 
 .TH "sat" "1" "" "Ilan A. Smith" "Utilities"
 .SH "NAME"
-.LP 
-sat \- solves SAT problems using self replicating loops in a cellular automata 
+.LP
+sat \- solves SAT problems using self replicating loops in a cellular automata
 environment
 .SH "SYNTAX"
-.LP 
+.LP
 sat [ OPTIONS ] [\-p] "<pred>"
-.br 
+.br
 sat [ OPTIONS ] \-f <name>
-.br 
+.br
 sat \-h | \-e
 .SH "DESCRIPTION"
-.LP 
+.LP
 The SAT application is based the work of Hui\-Hsien Chou and James A. Reggia:
 Problem Solving during artificial selection of self\-replication loops.
 
-Definition of the SAT decision problem: 
-.IP 
+Definition of the SAT decision problem:
+.IP
 Given predicate P in Conjunctive Normal Form (CNF), is P satisfiable?
-.LP 
-The sat application decides instances of SAT. Moreover, for each input 
-predicate P found to be in SAT, it produces all the possible assignments to P's 
-variables that satisfy P. 
+.LP
+The sat application decides instances of SAT. Moreover, for each input
+predicate P found to be in SAT, it produces all the possible assignments to P's
+variables that satisfy P.
 
-SAT is an NP\-complete problem. A trivial algorithm for solving an instance of 
-SAT is to enumerate all possible assignments to its variables and to test each 
-assignment for satisfaction of the predicate. The solution to the SAT problem 
-provided by the sat application is based on this algorithm. 
+SAT is an NP\-complete problem. A trivial algorithm for solving an instance of
+SAT is to enumerate all possible assignments to its variables and to test each
+assignment for satisfaction of the predicate. The solution to the SAT problem
+provided by the sat application is based on this algorithm.
 
-In Chou and Reggia's paper, the solution discussed is for the K\-SAT problem 
-(where each clause in the CNF predicate is of a constant length: K). 
-The sat application extends the solution to solving any instance of SAT. It 
-also supports CNF expressions with clauses in which there are multiple 
+In Chou and Reggia's paper, the solution discussed is for the K\-SAT problem
+(where each clause in the CNF predicate is of a constant length: K).
+The sat application extends the solution to solving any instance of SAT. It
+also supports CNF expressions with clauses in which there are multiple
 instances of one or more variables.
 
-The technique is to break the SAT problem into small 
-subproblems \- each possible assignment is carried by a self replicating loop 
-in a cellular automata environment. Artificial selection is used to remove 
+The technique is to break the SAT problem into small
+subproblems \- each possible assignment is carried by a self replicating loop
+in a cellular automata environment. Artificial selection is used to remove
 loops carrying non satisfying assignments.
 
-The sat application uses an event loop to provide a multi tasked single 
-threaded environment. The implementation of the cellular space differs slightly 
-from the classic definition of CA space in that it is event driven. That is, 
-most cells are in a dormant state and are not active during iteration. Only 
-cells on the loops, or on the extensions of replicating loops are active and 
+The sat application uses an event loop to provide a multi tasked single
+threaded environment. The implementation of the cellular space differs slightly
+from the classic definition of CA space in that it is event driven. That is,
+most cells are in a dormant state and are not active during iteration. Only
+cells on the loops, or on the extensions of replicating loops are active and
 change their state from iteration to iteration.
 
 .SH "OPTIONS"
 .SS
 Input Predicate
-.LP 
-.TP 
+.LP
+.TP
 \fB\-p "<pred>"\fR
-Read the CNF predicate \fIpred\fR from the command line. This is the default 
+Read the CNF predicate \fIpred\fR from the command line. This is the default
 option.
-.TP 
+.TP
 \fB\-f <name>\fR
 Read the CNF predicate from the file \fIname\fR.
 .SS
 Cellular Automata Fields
-.LP 
-.TP 
+.LP
+.TP
 \fB\-n\fR
 Do not output any graphical display. This is the default option.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-o\fR
 Display the code field.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-d\fR
 Display the direction field.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-l\fR
 Display the flag field.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-c\fR
 Display the colour field.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-t\fR
 Display the monitor field.
 .SS
 Calculation Speed
-.br 
+.br
 There is no speed restriction when graphical display is not being used.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-s\fR
 Slow \- approximately 0.5 seconds per iteration.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-m\fR
 Medium \- approximately 0.1 seconds per iteration. This is the default option.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-r\fR
 Rapid \- approximately 0.05 seconds per iteration.
 .SS
 General Options
-.LP 
-.TP 
+.LP
+.TP
 \fB\-h\fR
 Output a help message.
-.LP 
-.TP 
+.LP
+.TP
 \fB\-e\fR
-Clear the screen and re\-enable the cursor in the event of premature 
+Clear the screen and re\-enable the cursor in the event of premature
 termination.
 .SH "EXAMPLES"
-.LP 
-To calculate the following predicate while displaying the cellular automata 
+.LP
+To calculate the following predicate while displaying the cellular automata
 code fields:
-.LP 
+.LP
 sat \-o "(a3 or \-a1) and (\-a2 or a4 or a1 or \-a4) and (\-a4)"
-.LP 
+.LP
 If the file cnf.txt contains:
-.IP 
+.IP
 (a3 or \-a1) and (\-a2 or a4 or a1 or \-a4) and (\-a4)
-.LP 
-the calculation could be performed displaying the monitor fields this time, 
+.LP
+the calculation could be performed displaying the monitor fields this time,
 while achieving faster processing:
-.LP 
+.LP
 sat \-t \-r \-f cnf.txt
 .SH "AUTHOR"
-.LP 
+.LP
 Ilan A. Smith <lunnys@gmail.com>
 .SH "SEE ALSO"
-.LP 
+.LP
 Problem solving during artificial selection of self\-replicating loops
-.br 
+.br
 http://complex.gdcb.iastate.edu/download/Trend/examples/3SAT.html
 .SH "BUGS"
-A predicates with too big a clause may cause non mature loops to get stranded 
-for replication space. The processing of such predicates will never end. A more 
+A predicates with too big a clause may cause non mature loops to get stranded
+for replication space. The processing of such predicates will never end. A more
 sophisticated expansion scheme is required.
-.br 
+.br
 Example: (a or b or c or d or e or f or g or h)

@@ -3,12 +3,12 @@
 
 int main(int argc, char *argv[])
 {
-    int ret;
+	int ret;
 
-    event_init();
-    if (!(ret = sat_init(argc, argv)))
-	event_loop();
-    event_uninit();
-    return ret;
+	event_init();
+	if (!(ret = sat_init(argc, argv)))
+		event_loop();
+	event_uninit();
+	return ret;
 }
 

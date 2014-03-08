@@ -5,25 +5,25 @@
 #include "sat_variable.h"
 
 typedef struct literal_t {
-    struct literal_t *next;
-    int id;
-    sat_tv_t tv;
+	struct literal_t *next;
+	int id;
+	sat_tv_t tv;
 } literal_t;
 
 typedef struct clause_t {
-    struct clause_t *next;
-    int id;
-    int dim;
-    literal_t *literals;
+	struct clause_t *next;
+	int id;
+	int dim;
+	literal_t *literals;
 } clause_t;
 
 typedef struct table_t {
-    int record_num;
-    int record_dim;
-    literal_t **t;
-    int var_num;
-    int assignment_num;
-    literal_t **assignments;
+	int record_num;
+	int record_dim;
+	literal_t **t;
+	int var_num;
+	int assignment_num;
+	literal_t **assignments;
 } table_t;
 
 int clause_new(clause_t **clauses);

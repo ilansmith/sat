@@ -11,7 +11,7 @@
 
 /* cursor movement and colouring escape sequence formats */
 #define FMT_CURSOR_UP "\E[%dA"
-/* The Color Code:     <ESC>[{attr};{fg};{bg}m */
+/* The Color Code: <ESC>[{attr};{fg};{bg}m */
 #define FMT_COLOUR "\E[%d;%d;%dm"
 #define FMT_COLOUR_SIZE 12
 
@@ -44,13 +44,14 @@
 #define ASCII_ONE 49
 
 typedef enum {
-    SAT_TV_FALSE = 0,
-    SAT_TV_TRUE = 1,
-    SAT_TV_TAUTOLOGY = 2,
-    SAT_TV_PARADOX = 3,
-    SAT_TV_CNT = 4
+	SAT_TV_FALSE = 0,
+	SAT_TV_TRUE = 1,
+	SAT_TV_TAUTOLOGY = 2,
+	SAT_TV_PARADOX = 3,
+	SAT_TV_CNT = 4
 } sat_tv_t;
 
 int sat_init(int argc, char **argv);
 
 #endif
+

@@ -10,39 +10,39 @@
 #define FD_EXCEPTION 0x3
 
 typedef enum {
-    SIG_LOOP= 0,
-    SIG_ERROR = 1,
-    SIG_COUNT = 2,
+	SIG_LOOP= 0,
+	SIG_ERROR = 1,
+	SIG_COUNT = 2,
 } sig_t;
 
-typedef void (* event_func_t)(void *o);
-typedef void (* sig_func_t)(sig_t s, void *o);
-typedef void (* fd_func_t)(int fd, void *o);
+typedef void (*event_func_t)(void *o);
+typedef void (*sig_func_t)(sig_t s, void *o);
+typedef void (*fd_func_t)(int fd, void *o);
 
 typedef struct sig_table_t {
-    struct sig_table_t *next;
-    sig_t signal;
-    sig_func_t func;
-    void *data;
+	struct sig_table_t *next;
+	sig_t signal;
+	sig_func_t func;
+	void *data;
 } sig_table_t;
 
 typedef struct fd_t {
-    struct fd_t *next;
-    int fd;
-    int type;
-    int stamp;
-    fd_func_t func;
-    void *data;
+	struct fd_t *next;
+	int fd;
+	int type;
+	int stamp;
+	fd_func_t func;
+	void *data;
 } fd_t;
 
 typedef struct event_t {
-    struct event_t *next;
-    int stamp;
-    event_func_t func;
-    void *data;
+	struct event_t *next;
+	int stamp;
+	event_func_t func;
+	void *data;
 } event_t;
 
-typedef void (* e_funct_t  )(void *);
+typedef void (*e_funct_t)(void *);
 
 int signal_register(sig_t signal, sig_func_t func, void *data);
 void signal_set(sig_t signal);
@@ -57,3 +57,4 @@ void event_init(void);
 void event_uninit(void);
 
 #endif
+
