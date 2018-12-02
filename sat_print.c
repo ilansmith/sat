@@ -16,7 +16,7 @@ static void sat_print_set(void *o)
 static void print_border_vertical(void)
 {
 	char colour[FMT_COLOUR_SIZE];
-	char field[2];
+	char field[FMT_COLOUR_SIZE];
 	int i;
 
 	sprintf(colour, FMT_COLOUR, ATTR_BRIGHT, COL_WHITE, COL_BCK_BLACK);

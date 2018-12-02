@@ -13,7 +13,7 @@
 #define FMT_CURSOR_UP "\E[%dA"
 /* The Color Code: <ESC>[{attr};{fg};{bg}m */
 #define FMT_COLOUR "\E[%d;%d;%dm"
-#define FMT_COLOUR_SIZE 12
+#define FMT_COLOUR_SIZE 14
 
 /* colour brightness */
 #define ATTR_DULL 0
