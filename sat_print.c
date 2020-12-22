@@ -53,7 +53,7 @@ static void sat_print(void *o)
 		print_border_horizontal();
 		for (j = 0; j < dim; j++) {
 			sat_print_t printer;
-			char field[FMT_COLOUR_SIZE + 2];
+			char field[FMT_COLOUR_SIZE + 12];
 
 			sat_print_params_get(o, i, j, &printer);
 			sprintf(colour, FMT_COLOUR, printer.is_bright,
